@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Lab — Interactive Practice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-base:#f2f4f9;--bg-surface:#ffffff;--bg-sidebar:#f8f9fd;--bg-editor:#1e2235;
+  --bg-card:#ffffff;--bg-input:#f0f2f8;--bg-hover:rgba(0,0,0,.04);
+  --accent:#e8952e;--accent-glow:rgba(232,149,46,.15);--teal:#0fa693;--teal-glow:rgba(15,166,147,.12);
+  --lavender:#8b7aec;--lavender-glow:rgba(139,122,236,.1);
+  --text-1:#1a1f36;--text-2:#5a617a;--text-3:#8b92a8;
+  --success:#22b573;--error:#e85454;--warning:#e8952e;
+  --border:#e2e5ef;--border-focus:#c5cae0;
+  --shadow:0 2px 12px rgba(0,0,0,.06);--shadow-lg:0 8px 32px rgba(0,0,0,.1);
+  --radius:10px;--radius-sm:6px;--radius-lg:16px;
+  --font-heading:'Bricolage Grotesque',sans-serif;
+  --font-body:'DM Sans',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+  --sidebar-w:280px;--rsidebar-w:300px;
+}
+.dark{
+  --bg-base:#0b1222;--bg-surface:#111a2e;--bg-sidebar:#0e1628;--bg-editor:#0d1424;
+  --bg-card:#162036;--bg-input:#1a2544;--bg-hover:rgba(255,255,255,.04);
+  --text-1:#e8edf5;--text-2:#8892a8;--text-3:#5a6480;
+  --border:#1e2d4a;--border-focus:#2a3d62;
+  --shadow:0 2px 12px rgba(0,0,0,.3);--shadow-lg:0 8px 32px rgba(0,0,0,.4);
+}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--bg-base);color:var(--text-1);line-height:1.6;overflow:hidden;height:100vh}
+h1,h2,h3,h4{font-family:var(--font-heading);font-weight:700;line-height:1.2}
+code,pre,.cm-s-sql-lab{font-family:var(--font-mono)!important}
+a{color:var(--accent);text-decoration:none}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-3)}
+
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg-sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .3s ease;z-index:100}
+.sidebar-header{padding:20px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sidebar-header h1{font-size:1.4rem;display:flex;align-items:center;gap:10px}
+.sidebar-header h1 .logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--teal));border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.9rem;font-weight:800}
+.sidebar-header p{font-size:.75rem;color:var(--text-3);margin-top:4px;font-family:var(--font-mono)}
+.sidebar-scroll{flex:1;overflow-y:auto;padding:12px 0}
+.sidebar-section{padding:0 12px;margin-bottom:8px}
+.sidebar-section-title{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-3);padding:8px 8px 4px;font-family:var(--font-mono)}
+.schema-tables{padding:0 4px}
+.schema-table{margin-bottom:2px}
+.schema-table-name{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--radius-sm);cursor:pointer;font-size:.8rem;font-weight:500;color:var(--text-2);transition:all .15s}
+.schema-table-name:hover{background:var(--bg-hover);color:var(--text-1)}
+.schema-table-name i{font-size:.65rem;color:var(--teal);width:14px;text-align:center}
+.schema-table-name .arrow{margin-left:auto;font-size:.6rem;transition:transform .2s}
+.schema-table-name.open .arrow{transform:rotate(90deg)}
+.schema-cols{padding:2px 0 2px 30px;display:none;font-size:.72rem;color:var(--text-3);font-family:var(--font-mono)}
+.schema-cols.show{display:block}
+.schema-col{padding:2px 0;display:flex;gap:6px}
+.schema-col .col-name{color:var(--text-2)}
+.schema-col .col-type{color:var(--lavender);font-size:.65rem}
+.schema-col .col-pk{color:var(--accent);font-size:.6rem;font-weight:600}
+.topic-list{padding:0 4px}
+.topic-category{margin-bottom:2px}
+.topic-cat-btn{display:flex;align-items:center;gap:8px;padding:6px 8px;width:100%;border:none;background:none;border-radius:var(--radius-sm);cursor:pointer;font-size:.8rem;font-weight:600;color:var(--text-2);font-family:var(--font-body);transition:all .15s;text-align:left}
+.topic-cat-btn:hover{background:var(--bg-hover);color:var(--text-1)}
+.topic-cat-btn i{width:18px;text-align:center;font-size:.75rem}
+.topic-cat-btn .cat-arrow{margin-left:auto;font-size:.55rem;transition:transform .2s}
+.topic-cat-btn.open .cat-arrow{transform:rotate(90deg)}
+.topic-cat-btn .cat-count{margin-left:auto;margin-right:4px;font-size:.6rem;background:var(--bg-input);padding:1px 6px;border-radius:10px;color:var(--text-3);font-family:var(--font-mono)}
+.topic-items{display:none;padding:2px 0 2px 12px}
+.topic-items.show{display:block}
+.topic-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:.78rem;color:var(--text-2);transition:all .15s;border:none;background:none;width:100%;text-align:left;font-family:var(--font-body)}
+.topic-item:hover{background:var(--bg-hover);color:var(--text-1)}
+.topic-item.active{background:var(--accent-glow);color:var(--accent);font-weight:600}
+.topic-item .check{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.5rem;flex-shrink:0;transition:all .2s}
+.topic-item.completed .check{background:var(--success);border-color:var(--success);color:#fff}
+.progress-bar{margin:12px 16px;padding:12px;background:var(--bg-card);border-radius:var(--radius);border:1px solid var(--border)}
+.progress-bar .prog-label{display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-3);margin-bottom:6px;font-family:var(--font-mono)}
+.prog-track{height:6px;background:var(--bg-input);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--accent));border-radius:3px;transition:width .4s ease;width:0}
+
+/* Right Sidebar */
+.rsidebar{width:var(--rsidebar-w);min-width:var(--rsidebar-w);background:var(--bg-sidebar);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .3s ease, margin .3s ease, min-width .3s ease, width .3s ease;z-index:100}
+.rsidebar.collapsed{width:0;min-width:0;border-left:none;overflow:hidden}
+.rsidebar-header{padding:16px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.rsidebar-header h3{font-size:.95rem;display:flex;align-items:center;gap:8px}
+.rsidebar-header h3 i{color:var(--teal);font-size:.8rem}
+.rsidebar-close{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:.9rem;padding:4px;border-radius:var(--radius-sm)}
+.rsidebar-close:hover{color:var(--text-1);background:var(--bg-hover)}
+.rsidebar-scroll{flex:1;overflow-y:auto;padding:8px 0}
+.rsidebar-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 12px;flex-shrink:0}
+.rsidebar-tab{flex:1;padding:8px 4px;font-size:.72rem;font-weight:600;text-align:center;border:none;background:none;color:var(--text-3);cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font-body);transition:all .15s}
+.rsidebar-tab:hover{color:var(--text-2)}
+.rsidebar-tab.active{color:var(--teal);border-bottom-color:var(--teal)}
+.rsidebar-panel{display:none;padding:8px 12px}
+.rsidebar-panel.active{display:block}
+.snippet-group{margin-bottom:6px}
+.snippet-group-btn{display:flex;align-items:center;gap:6px;padding:5px 8px;width:100%;border:none;background:none;border-radius:var(--radius-sm);cursor:pointer;font-size:.75rem;font-weight:600;color:var(--text-2);font-family:var(--font-body);transition:all .15s;text-align:left}
+.snippet-group-btn:hover{background:var(--bg-hover);color:var(--text-1)}
+.snippet-group-btn i{font-size:.6rem;color:var(--teal);width:14px}
+.snippet-group-btn .sg-arrow{margin-left:auto;font-size:.5rem;transition:transform .2s}
+.snippet-group-btn.open .sg-arrow{transform:rotate(90deg)}
+.snippet-items{display:none;padding:2px 0 2px 8px}
+.snippet-items.show{display:block}
+.snippet-card{display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:4px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;border-left:3px solid transparent}
+.snippet-card:hover{border-left-color:var(--teal);background:var(--bg-hover);transform:translateX(2px)}
+.snippet-card .sn-title{font-size:.74rem;font-weight:600;color:var(--text-1);margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.snippet-card .sn-title i{color:var(--teal);font-size:.55rem}
+.snippet-card .sn-sql{font-size:.66rem;color:var(--text-3);font-family:var(--font-mono);white-space:pre-wrap;line-height:1.4;max-height:48px;overflow:hidden}
+.saved-empty{padding:20px;text-align:center;color:var(--text-3);font-size:.8rem}
+.saved-empty i{display:block;font-size:1.5rem;margin-bottom:8px;opacity:.3}
+.saved-card{display:flex;align-items:center;gap:6px;padding:8px 10px;margin-bottom:4px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;border-left:3px solid transparent}
+.saved-card:hover{border-left-color:var(--accent);background:var(--bg-hover)}
+.saved-card .sv-info{flex:1;min-width:0}
+.saved-card .sv-name{font-size:.74rem;font-weight:600;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.saved-card .sv-preview{font-size:.64rem;color:var(--text-3);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.saved-card .sv-del{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:.7rem;padding:4px;border-radius:var(--radius-sm);flex-shrink:0}
+.saved-card .sv-del:hover{color:var(--error);background:rgba(232,84,84,.1)}
+.saved-actions{padding:8px 0;display:flex;gap:6px;flex-wrap:wrap}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.main-header{display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--bg-surface);flex-shrink:0;gap:8px}
+.menu-btn{display:none;background:none;border:none;font-size:1.2rem;color:var(--text-2);cursor:pointer;padding:4px;border-radius:var(--radius-sm)}
+.main-header .breadcrumb{font-size:.78rem;color:var(--text-3);font-family:var(--font-mono)}
+.main-header .breadcrumb span{color:var(--accent);font-weight:600}
+.db-actions{margin-left:auto;display:flex;gap:6px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);font-size:.78rem;font-weight:600;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-2);cursor:pointer;font-family:var(--font-body);transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:var(--border-focus);color:var(--text-1)}
+.btn-accent{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-accent:hover{filter:brightness(1.1);border-color:var(--accent)}
+.btn-teal{background:var(--teal);color:#fff;border-color:var(--teal)}
+.btn-teal:hover{filter:brightness(1.1);border-color:var(--teal)}
+.btn-sm{padding:5px 10px;font-size:.72rem}
+.btn i{font-size:.7rem}
+
+.main-scroll{flex:1;overflow-y:auto;padding:0}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;min-height:100%;text-align:center}
+.welcome-icon{font-size:3rem;margin-bottom:20px;background:linear-gradient(135deg,var(--accent),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.welcome h2{font-size:1.8rem;margin-bottom:8px}
+.welcome p{color:var(--text-2);max-width:500px;margin-bottom:24px;font-size:.92rem}
+.welcome-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;width:100%;max-width:600px}
+.welcome-card{padding:16px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);text-align:center;transition:all .2s;cursor:pointer}
+.welcome-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
+.welcome-card i{font-size:1.3rem;margin-bottom:8px;display:block}
+.welcome-card .wc-title{font-size:.82rem;font-weight:600;margin-bottom:2px}
+.welcome-card .wc-count{font-size:.68rem;color:var(--text-3);font-family:var(--font-mono)}
+.wc-ddl i{color:#e8952e}.wc-dml i{color:#0fa693}.wc-select i{color:#8b7aec}.wc-ops i{color:#e85454}
+.wc-func i{color:#3b82f6}.wc-join i{color:#ec4899}.wc-sub i{color:#f59e0b}.wc-view i{color:#10b981}
+.wc-ref i{color:var(--teal)}
+
+/* Topic View */
+.topic-view{display:none;padding:24px;max-width:960px}
+.topic-view.active{display:block}
+.topic-title-row{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.topic-title-row h2{font-size:1.5rem}
+.cat-badge{font-size:.65rem;font-weight:600;padding:3px 10px;border-radius:20px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.5px}
+.cat-ddl{background:var(--accent-glow);color:var(--accent)}
+.cat-dml{background:var(--teal-glow);color:var(--teal)}
+.cat-select{background:var(--lavender-glow);color:var(--lavender)}
+.cat-operators{background:rgba(232,84,84,.1);color:var(--error)}
+.cat-functions{background:rgba(59,130,246,.1);color:#3b82f6}
+.cat-joins{background:rgba(236,72,153,.1);color:#ec4899}
+.cat-subqueries{background:rgba(245,158,11,.1);color:#f59e0b}
+.cat-views{background:rgba(16,185,129,.1);color:#10b981}
+.theory-block{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;font-size:.88rem;line-height:1.7}
+.theory-block h3{font-size:1rem;margin-bottom:10px;color:var(--accent)}
+.theory-block p{color:var(--text-2);margin-bottom:10px}
+.theory-block ul{padding-left:20px;color:var(--text-2);margin-bottom:10px}
+.theory-block li{margin-bottom:4px}
+.syntax-box{background:var(--bg-editor);color:#c9d1d9;padding:14px 16px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:.8rem;margin:10px 0;overflow-x:auto;line-height:1.5;border:1px solid rgba(255,255,255,.06)}
+.syntax-box .kw{color:#ff7b72}.syntax-box .fn{color:#d2a8ff}
+.syntax-box .str{color:#a5d6ff}.syntax-box .cm{color:#8b949e}
+
+/* Editor Area */
+.editor-section{margin-bottom:20px}
+.editor-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.editor-toolbar .label{font-size:.78rem;font-weight:600;color:var(--text-2)}
+.editor-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg-editor)}
+.CodeMirror{height:160px;font-size:.85rem;line-height:1.5;font-family:var(--font-mono)!important}
+.cm-s-sql-lab .CodeMirror-gutters{background:#151b30;border-right:1px solid #1e2844}
+.cm-s-sql-lab .CodeMirror-linenumber{color:#4a5480}
+.cm-s-sql-lab{background:#1a2040!important;color:#c9d1d9!important}
+.dark .cm-s-sql-lab{background:#0d1424!important}
+.cm-s-sql-lab .cm-keyword{color:#ff9e64;font-weight:600}
+.cm-s-sql-lab .cm-number{color:#89ddff}
+.cm-s-sql-lab .cm-string{color:#c3e88d}
+.cm-s-sql-lab .cm-string-2{color:#c3e88d}
+.cm-s-sql-lab .cm-comment{color:#546178;font-style:italic}
+.cm-s-sql-lab .cm-operator{color:#89ddff}
+.cm-s-sql-lab .cm-builtin{color:#c792ea}
+.cm-s-sql-lab .cm-atom{color:#f78c6c}
+.cm-s-sql-lab .cm-def{color:#82aaff}
+.cm-s-sql-lab .cm-variable{color:#c9d1d9}
+.cm-s-sql-lab .cm-variable-2{color:#eeffff}
+.cm-s-sql-lab .cm-type{color:#ffcb6b}
+.cm-s-sql-lab .cm-bracket{color:#89ddff}
+.cm-s-sql-lab .CodeMirror-cursor{border-left:2px solid var(--accent)!important}
+.cm-s-sql-lab .CodeMirror-selected{background:rgba(139,122,236,.2)!important}
+.cm-s-sql-lab .CodeMirror-activeline-background{background:rgba(255,255,255,.03)!important}
+.CodeMirror-focused .cm-matchhighlight{background:rgba(255,255,255,.08)}
+
+/* Results */
+.results-section{margin-bottom:20px}
+.results-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.results-header .label{font-size:.78rem;font-weight:600;color:var(--text-2)}
+.results-meta{font-size:.68rem;color:var(--text-3);font-family:var(--font-mono);margin-left:auto}
+.results-wrap{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.results-table-wrap{overflow-x:auto;max-height:280px;overflow-y:auto}
+.results-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.results-table th{background:var(--bg-input);font-weight:600;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);position:sticky;top:0;font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text-2);white-space:nowrap}
+.results-table td{padding:7px 12px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--text-2);font-family:var(--font-mono);font-size:.78rem}
+.results-table tr:hover td{background:var(--bg-hover)}
+.results-table tr:last-child td{border-bottom:none}
+.result-msg{padding:16px;font-size:.85rem;color:var(--text-2);text-align:center}
+.result-msg.msg-error{color:var(--error);background:rgba(232,84,84,.06)}
+.result-msg.msg-success{color:var(--success);background:rgba(34,181,115,.06)}
+.result-msg i{margin-right:6px}
+.result-empty{padding:24px;text-align:center;color:var(--text-3);font-size:.82rem}
+.result-empty i{display:block;font-size:1.5rem;margin-bottom:8px;opacity:.4}
+
+/* Challenge */
+.challenge-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.challenge-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.challenge-header i{color:var(--warning);font-size:1rem}
+.challenge-header h3{font-size:1rem}
+.challenge-header .ch-num{font-size:.68rem;color:var(--text-3);font-family:var(--font-mono);margin-left:auto}
+.challenge-desc{font-size:.88rem;color:var(--text-2);margin-bottom:14px;line-height:1.6}
+.challenge-desc code{background:var(--bg-input);padding:1px 6px;border-radius:3px;font-family:var(--font-mono);font-size:.8rem;color:var(--lavender)}
+.hint-toggle{font-size:.78rem;color:var(--text-3);cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin-bottom:10px;transition:color .15s}
+.hint-toggle:hover{color:var(--accent)}
+.hint-toggle i{font-size:.6rem;transition:transform .2s}
+.hint-toggle.open i{transform:rotate(90deg)}
+.hint-content{display:none;font-size:.82rem;color:var(--text-3);padding:10px 14px;background:var(--bg-input);border-radius:var(--radius-sm);margin-bottom:12px;font-style:italic;border-left:3px solid var(--accent)}
+.hint-content.show{display:block}
+.challenge-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.challenge-result{font-size:.82rem;padding:8px 12px;border-radius:var(--radius-sm);margin-top:10px;display:none}
+.challenge-result.pass{display:block;background:rgba(34,181,115,.1);color:var(--success);border:1px solid rgba(34,181,115,.2)}
+.challenge-result.fail{display:block;background:rgba(232,84,84,.08);color:var(--error);border:1px solid rgba(232,84,84,.15)}
+.challenge-result i{margin-right:6px}
+.topic-nav{display:flex;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.topic-nav .btn{font-size:.78rem}
+
+/* Reference View */
+.ref-view{display:none;padding:24px;max-width:960px}
+.ref-view.active{display:block}
+.ref-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.ref-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:border-color .2s}
+.ref-card:hover{border-color:var(--accent)}
+.ref-card h4{font-size:.9rem;margin-bottom:10px;color:var(--accent);display:flex;align-items:center;gap:8px}
+.ref-card h4 i{font-size:.75rem}
+.ref-card .syntax-box{margin:0;font-size:.72rem;padding:10px 12px}
+
+/* Save Name Inline */
+.save-inline{padding:8px 12px;display:none}
+.save-inline.show{display:block}
+.save-inline input{width:100%;padding:8px 10px;font-size:16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-1);font-family:var(--font-body);margin-bottom:6px;outline:none}
+.save-inline input:focus{border-color:var(--accent)}
+.save-inline .save-btns{display:flex;gap:6px}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal-box{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;max-width:380px;width:90%;box-shadow:var(--shadow-lg);transform:scale(.95);transition:transform .2s}
+.modal-overlay.open .modal-box{transform:scale(1)}
+.modal-box h3{margin-bottom:8px;font-size:1.1rem}
+.modal-box p{font-size:.88rem;color:var(--text-2);margin-bottom:20px}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+
+/* Loading */
+.loading-screen{position:fixed;inset:0;background:var(--bg-base);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity .4s}
+.loading-screen.hidden{opacity:0;pointer-events:none}
+.loader{width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin 1s linear infinite;margin-bottom:16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-screen p{font-size:.88rem;color:var(--text-2);font-family:var(--font-mono)}
+.loading-screen .load-sub{font-size:.72rem;color:var(--text-3);margin-top:4px}
+
+.kb-hint{font-size:.65rem;color:var(--text-3);font-family:var(--font-mono);display:flex;align-items:center;gap:4px;margin-left:auto}
+.kb-hint kbd{background:var(--bg-input);padding:1px 5px;border-radius:3px;border:1px solid var(--border);font-size:.6rem}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--bg-card);color:var(--text-1);border:1px solid var(--border);padding:10px 20px;border-radius:var(--radius);font-size:.82rem;font-weight:600;box-shadow:var(--shadow-lg);z-index:300;transition:transform .3s ease;display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast i{color:var(--success)}
+
+/* Responsive */
+@media(max-width:768px){
+  .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);box-shadow:var(--shadow-lg)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99;display:none}
+  .sidebar-overlay.open{display:block}
+  .rsidebar{position:fixed;right:0;top:0;bottom:0;transform:translateX(100%);box-shadow:var(--shadow-lg);width:85vw;min-width:85vw;max-width:340px}
+  .rsidebar.collapsed{transform:translateX(100%)}
+  .rsidebar:not(.collapsed){transform:translateX(0)}
+  .rsidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99;display:none}
+  .rsidebar-overlay.show{display:block}
+  .menu-btn{display:block}
+  .topic-view{padding:16px}
+  .ref-view{padding:16px}
+  .welcome-grid{grid-template-columns:repeat(2,1fr)}
+  .topic-title-row h2{font-size:1.2rem}
+  .kb-hint{display:none}
+  .db-actions .btn span.hide-mobile{display:none}
+  .ref-grid{grid-template-columns:1fr}
+}
+@media(min-width:769px){
+  .rsidebar-overlay{display:none!important}
+}
+@media(max-width:480px){
+  .welcome-grid{grid-template-columns:1fr 1fr}
+  .welcome h2{font-size:1.3rem}
+}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.topic-view.active{animation:fadeIn .3s ease}
+.ref-view.active{animation:fadeIn .3s ease}
+.welcome-card{animation:fadeIn .4s ease backwards}
+.welcome-card:nth-child(2){animation-delay:.05s}
+.welcome-card:nth-child(3){animation-delay:.1s}
+.welcome-card:nth-child(4){animation-delay:.15s}
+.welcome-card:nth-child(5){animation-delay:.2s}
+.welcome-card:nth-child(6){animation-delay:.25s}
+.welcome-card:nth-child(7){animation-delay:.3s}
+.welcome-card:nth-child(8){animation-delay:.35s}
+.welcome-card:nth-child(9){animation-delay:.4s}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="loader"></div>
+  <p>Initializing SQL Engine</p>
+  <p class="load-sub">Loading WebAssembly...</p>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <h3 id="modalTitle">Reset Database?</h3>
+    <p id="modalMsg">This will restore the database to its original state. All your changes will be lost.</p>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-accent" id="modalConfirm">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i><span id="toastMsg"></span></div>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="rsidebar-overlay" id="rsidebarOverlay"></div>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h1><span class="logo-icon">S</span> SQL Lab</h1>
+      <p>Interactive Practice Environment</p>
+    </div>
+    <div class="sidebar-scroll">
+      <div class="progress-bar">
+        <div class="prog-label"><span>Progress</span><span id="progText">0 / 0</span></div>
+        <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title"><i class="fa-solid fa-database"></i> Database Schema</div>
+        <div class="schema-tables" id="schemaPanel"></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title"><i class="fa-solid fa-book"></i> Topics</div>
+        <div class="topic-list" id="topicList"></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="main-header">
+      <button class="menu-btn" id="menuBtn"><i class="fa-solid fa-bars"></i></button>
+      <div class="breadcrumb" id="breadcrumb">SQL Lab <span>/ Welcome</span></div>
+      <div class="db-actions">
+        <button class="btn btn-sm" onclick="showRefView()" title="SQL Reference"><i class="fa-solid fa-book-open"></i> <span class="hide-mobile">Reference</span></button>
+        <button class="btn btn-sm" onclick="resetDbPrompt()"><i class="fa-solid fa-rotate-right"></i> <span class="hide-mobile">Reset DB</span></button>
+        <button class="btn btn-sm" id="rsidebarToggle" onclick="toggleRSidebar()" title="Snippets & Saved"><i class="fa-solid fa-code"></i> <span class="hide-mobile">Snippets</span></button>
+		<button class="btn" id="themeToggleBtn" onclick="toggleTheme()">
+		  <i class="fas fa-moon"></i> <span class="hide-mobile">Theme</span>
+		</button>
+
+		<label class="btn" style="cursor:pointer;" title="Import .sqlite File">
+		  <i class="fas fa-upload"></i> <span class="hide-mobile">Import</span>
+		  <input type="file" id="importDbInput" accept=".sqlite,.db,.sqlite3" style="display:none;" onchange="importDatabase(event)">
+		</label>
+
+		<button class="btn btn-teal" onclick="exportDatabase()" title="Download as .sqlite">
+		  <i class="fas fa-download"></i> <span class="hide-mobile">Export DB</span>
+		</button>
+		
+      </div>
+    </header>
+
+    <div class="main-scroll" id="mainScroll">
+      <div class="welcome" id="welcomeView">
+        <div class="welcome-icon"><i class="fa-solid fa-terminal"></i></div>
+        <h2>Welcome to SQL Lab</h2>
+        <p>Master SQL through hands-on practice. Choose a topic below to start writing real queries in your browser.</p>
+        <div class="welcome-grid" id="welcomeGrid"></div>
+      </div>
+      <div class="topic-view" id="topicView"></div>
+      <div class="ref-view" id="refView"></div>
+    </div>
+  </main>
+
+  <aside class="rsidebar collapsed" id="rsidebar">
+    <div class="rsidebar-header">
+      <h3><i class="fa-solid fa-code"></i> Quick Panel</h3>
+      <button class="rsidebar-close" onclick="toggleRSidebar()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="rsidebar-tabs">
+      <button class="rsidebar-tab active" data-panel="snippetsPanel" onclick="switchRTab(this)"><i class="fa-solid fa-bolt"></i> Snippets</button>
+      <button class="rsidebar-tab" data-panel="savedPanel" onclick="switchRTab(this)"><i class="fa-solid fa-bookmark"></i> Saved</button>
+    </div>
+    <div class="rsidebar-scroll">
+      <div class="rsidebar-panel active" id="snippetsPanel"></div>
+      <div class="rsidebar-panel" id="savedPanel"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* ========== DARK MODE ========== */
+if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark')}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{if(e.matches)document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark')});
+
+/* ========== CATEGORIES & TOPICS ========== */
+var CATEGORIES=[
+  {id:'ddl',name:'DDL',icon:'fa-hammer',color:'accent'},
+  {id:'dml',name:'DML',icon:'fa-pen-to-square',color:'teal'},
+  {id:'select',name:'SELECT',icon:'fa-magnifying-glass',color:'lavender'},
+  {id:'operators',name:'Operators',icon:'fa-not-equal',color:'error'},
+  {id:'functions',name:'Functions',icon:'fa-square-root-variable',color:'#3b82f6'},
+  {id:'joins',name:'JOINs',icon:'fa-circle-nodes',color:'#ec4899'},
+  {id:'subqueries',name:'Subqueries',icon:'fa-layer-group',color:'#f59e0b'},
+  {id:'views',name:'VIEWs',icon:'fa-eye',color:'#10b981'}
+];
+
+var TOPICS=[
+  {id:'create-table',cat:'ddl',title:'CREATE TABLE',
+    theory:'<h3>Creating Tables</h3><p>The <code>CREATE TABLE</code> statement defines a new table with columns, data types, and constraints.</p><div class="syntax-box"><span class="kw">CREATE TABLE</span> table_name (<br>&nbsp;&nbsp;column1 datatype <span class="cm">constraint</span>,<br>&nbsp;&nbsp;column2 datatype <span class="cm">constraint</span>,<br>&nbsp;&nbsp;...<br>);</div><p><strong>Common data types:</strong> INTEGER, REAL, TEXT, BLOB</p><p><strong>Constraints:</strong> PRIMARY KEY, NOT NULL, UNIQUE, DEFAULT, FOREIGN KEY</p>',
+    example:'CREATE TABLE students (\n  student_id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL,\n  email TEXT UNIQUE,\n  gpa REAL DEFAULT 0.0,\n  enrolled_date TEXT\n);\n\nSELECT * FROM students;',
+    challenges:[{title:'Create a Projects Table',desc:'Create a table called <code>projects</code> with columns: <code>project_id</code> (INTEGER, PRIMARY KEY), <code>title</code> (TEXT, NOT NULL), <code>budget</code> (REAL), and <code>start_date</code> (TEXT).',hint:'Use CREATE TABLE projects (...) with the right data types and constraints.',validate:function(db){try{var t=db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'");if(!t.length||!t[0].values.length)return{pass:false,msg:'Table "projects" not found.'};var cols=db.exec("PRAGMA table_info(projects)");var names=cols[0].values.map(function(r){return r[1]});if(!names.includes('project_id'))return{pass:false,msg:'Missing column "project_id".'};if(!names.includes('title'))return{pass:false,msg:'Missing column "title".'};if(!names.includes('budget'))return{pass:false,msg:'Missing column "budget".'};if(!names.includes('start_date'))return{pass:false,msg:'Missing column "start_date".'};return{pass:true,msg:'You created the projects table correctly!'}}catch(e){return{pass:false,msg:e.message}}}}]},
+  {id:'alter-table',cat:'ddl',title:'ALTER TABLE',
+    theory:'<h3>Altering Tables</h3><p><code>ALTER TABLE</code> modifies an existing table structure. In SQLite, you can add columns and rename tables.</p><div class="syntax-box"><span class="kw">ALTER TABLE</span> table_name <span class="kw">ADD COLUMN</span> col_name datatype;<br><span class="kw">ALTER TABLE</span> table_name <span class="kw">RENAME TO</span> new_name;<br><span class="kw">ALTER TABLE</span> table_name <span class="kw">RENAME COLUMN</span> old <span class="kw">TO</span> new;</div><p><strong>Note:</strong> SQLite has limited ALTER TABLE support compared to other databases.</p>',
+    example:'-- Add a phone column to employees\nALTER TABLE employees ADD COLUMN phone TEXT;\n\n-- Verify the change\nPRAGMA table_info(employees);',
+    challenges:[{title:'Add a Column to Products',desc:'Add a column called <code>discount</code> of type <code>REAL</code> to the <code>products</code> table.',hint:'ALTER TABLE products ADD COLUMN discount REAL;',validate:function(db){try{var cols=db.exec("PRAGMA table_info(products)");var names=cols[0].values.map(function(r){return r[1]});if(names.includes('discount'))return{pass:true,msg:'Column "discount" added to products!'};return{pass:false,msg:'Column "discount" not found in the products table.'}}catch(e){return{pass:false,msg:e.message}}}}]},
+  {id:'drop-table',cat:'ddl',title:'DROP TABLE',
+    theory:'<h3>Dropping Tables</h3><p><code>DROP TABLE</code> permanently removes a table and all its data from the database.</p><div class="syntax-box"><span class="kw">DROP TABLE</span> table_name;<br><span class="kw">DROP TABLE IF EXISTS</span> table_name;</div><p><strong>Caution:</strong> This action cannot be undone. Use <code>IF EXISTS</code> to avoid errors.</p>',
+    example:'-- Create a temporary table, then drop it\nCREATE TABLE temp_data (id INTEGER, value TEXT);\nINSERT INTO temp_data VALUES (1, \'test\');\nSELECT * FROM temp_data;',
+    challenges:[{title:'Drop the Temp Table',desc:'First run the example to create <code>temp_data</code>, then drop the <code>temp_data</code> table using <code>IF EXISTS</code>.',hint:'DROP TABLE IF EXISTS temp_data;',validate:function(db){try{var t=db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='temp_data'");if(!t.length||!t[0].values.length)return{pass:true,msg:'Table "temp_data" has been dropped!'};return{pass:false,msg:'Table "temp_data" still exists.'}}catch(e){return{pass:false,msg:e.message}}}}]},
+  {id:'insert',cat:'dml',title:'INSERT INTO',
+    theory:'<h3>Inserting Data</h3><p><code>INSERT INTO</code> adds new rows to a table.</p><div class="syntax-box"><span class="kw">INSERT INTO</span> table (col1, col2) <span class="kw">VALUES</span> (val1, val2);<br><br><span class="cm">-- Insert multiple rows</span><br><span class="kw">INSERT INTO</span> table (col1, col2) <span class="kw">VALUES</span><br>&nbsp;&nbsp;(val1, val2),<br>&nbsp;&nbsp;(val3, val4);</div>',
+    example:'INSERT INTO departments (dept_id, dept_name, location)\nVALUES (6, \'Research\', \'Seattle\');\n\nSELECT * FROM departments;',
+    challenges:[{title:'Add a New Employee',desc:'Insert a new employee with <code>emp_id</code> = 16, <code>first_name</code> = \'Grace\', <code>last_name</code> = \'Lee\', <code>email</code> = \'grace.lee@company.com\', <code>salary</code> = 72000, <code>hire_date</code> = \'2024-03-15\', <code>dept_id</code> = 1.',hint:'INSERT INTO employees (emp_id, first_name, ...) VALUES (16, \'Grace\', ...);',validate:function(db){try{var r=db.exec("SELECT * FROM employees WHERE emp_id=16");if(!r.length||!r[0].values.length)return{pass:false,msg:'No employee with emp_id=16 found.'};var row=r[0].values[0];var fn=r[0].columns.indexOf('first_name');if(row[fn]!=='Grace')return{pass:false,msg:'first_name should be "Grace".'};return{pass:true,msg:'Grace Lee has been added to the team!'}}catch(e){return{pass:false,msg:e.message}}}}]},
+  {id:'update',cat:'dml',title:'UPDATE',
+    theory:'<h3>Updating Data</h3><p><code>UPDATE</code> modifies existing rows. Always use a <code>WHERE</code> clause!</p><div class="syntax-box"><span class="kw">UPDATE</span> table_name<br><span class="kw">SET</span> col1 = val1, col2 = val2<br><span class="kw">WHERE</span> condition;</div><p><strong>Warning:</strong> Without WHERE, all rows will be updated.</p>',
+    example:'-- Give a 10% raise to employee #1\nUPDATE employees SET salary = salary * 1.10\nWHERE emp_id = 1;\n\nSELECT emp_id, first_name, salary FROM employees WHERE emp_id = 1;',
+    challenges:[{title:'Update Department Location',desc:'Change the <code>location</code> of the <code>Marketing</code> department (dept_id = 2) to \'Boston\'.',hint:'UPDATE departments SET location = \'Boston\' WHERE dept_id = 2;',validate:function(db){try{var r=db.exec("SELECT location FROM departments WHERE dept_id=2");if(r.length&&r[0].values[0][0]==='Boston')return{pass:true,msg:'Marketing location updated to Boston!'};return{pass:false,msg:'The Marketing department location is not "Boston" yet.'}}catch(e){return{pass:false,msg:e.message}}}}]},
+  {id:'delete',cat:'dml',title:'DELETE',
+    theory:'<h3>Deleting Data</h3><p><code>DELETE FROM</code> removes rows from a table. Always use <code>WHERE</code> to target specific rows.</p><div class="syntax-box"><span class="kw">DELETE FROM</span> table_name <span class="kw">WHERE</span> condition;<br><br><span class="cm">-- Delete all rows (careful!)</span><br><span class="kw">DELETE FROM</span> table_name;</div>',
+    example:'-- Delete a specific order\nDELETE FROM orders WHERE order_id = 12;\n\nSELECT * FROM orders ORDER BY order_id;',
+    challenges:[{title:'Remove Low-Stock Products',desc:'Delete all products where <code>stock</code> is less than 15.',hint:'DELETE FROM products WHERE stock < 15;',validate:function(db){try{var r=db.exec("SELECT COUNT(*) FROM products WHERE stock < 15");if(r[0].values[0][0]===0)return{pass:true,msg:'Low-stock products removed!'};return{pass:false,msg:'There are still products with stock < 15.'}}catch(e){return{pass:false,msg:e.message}}}}]},
+  {id:'select-where',cat:'select',title:'SELECT & WHERE',
+    theory:'<h3>Querying Data</h3><p><code>SELECT</code> retrieves data from tables. <code>WHERE</code> filters rows based on conditions.</p><div class="syntax-box"><span class="kw">SELECT</span> col1, col2 <span class="kw">FROM</span> table_name<br><span class="kw">WHERE</span> condition;</div><p>Use <code>*</code> to select all columns. Combine conditions with <code>AND</code> / <code>OR</code>.</p>',
+    example:'-- Employees earning over 70000\nSELECT first_name, last_name, salary\nFROM employees\nWHERE salary > 70000;',
+    challenges:[{title:'Find Engineering Staff',desc:'Write a query to get <code>first_name</code>, <code>last_name</code>, and <code>salary</code> of all employees in department 1 (Engineering).',hint:'SELECT first_name, last_name, salary FROM employees WHERE dept_id = 1;',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};try{var exp=db.exec("SELECT first_name, last_name, salary FROM employees WHERE dept_id=1");if(!exp.length)return{pass:false,msg:'Unexpected error.'};if(res.values.length!==exp[0].values.length)return{pass:false,msg:'Expected '+exp[0].values.length+' rows, got '+res.values.length+'.'};if(res.columns.length<3)return{pass:false,msg:'Select at least 3 columns.'};return{pass:true,msg:'You found all Engineering staff!'}}catch(e){return{pass:false,msg:e.message}}}}]},
+  {id:'orderby-distinct',cat:'select',title:'ORDER BY & DISTINCT',
+    theory:'<h3>Sorting & Unique Values</h3><p><code>ORDER BY</code> sorts results. <code>DISTINCT</code> removes duplicate rows.</p><div class="syntax-box"><span class="kw">SELECT DISTINCT</span> col <span class="kw">FROM</span> table;<br><br><span class="kw">SELECT</span> * <span class="kw">FROM</span> table<br><span class="kw">ORDER BY</span> col <span class="kw">ASC</span>|<span class="kw">DESC</span>;</div>',
+    example:'-- Get unique cities from customers, sorted\nSELECT DISTINCT city\nFROM customers\nORDER BY city ASC;',
+    challenges:[{title:'Top Earners',desc:'Select <code>first_name</code>, <code>last_name</code>, and <code>salary</code> from employees, ordered by <code>salary</code> descending. Show only the top 5 using <code>LIMIT</code>.',hint:'SELECT ... FROM employees ORDER BY salary DESC LIMIT 5;',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};if(res.values.length!==5)return{pass:false,msg:'Expected 5 rows. Got '+res.values.length+'.'};var salIdx=res.columns.findIndex(function(c){return c.toLowerCase()==='salary'});if(salIdx<0)return{pass:false,msg:'Include the salary column.'};if(res.values[0][salIdx]<res.values[4][salIdx])return{pass:false,msg:'Sort by salary DESC.'};return{pass:true,msg:'Top 5 earners found!'}}}]},
+  {id:'in-between-like',cat:'operators',title:'IN, BETWEEN & LIKE',
+    theory:'<h3>Set, Range & Pattern Operators</h3><ul><li><code>IN (v1, v2, ...)</code> — matches any value in the list</li><li><code>BETWEEN a AND b</code> — range check (inclusive)</li><li><code>LIKE pattern</code> — pattern matching (<code>%</code> = any chars, <code>_</code> = one char)</li></ul><div class="syntax-box"><span class="kw">SELECT</span> * <span class="kw">FROM</span> t <span class="kw">WHERE</span> col <span class="kw">IN</span> (1, 2, 3);<br><span class="kw">SELECT</span> * <span class="kw">FROM</span> t <span class="kw">WHERE</span> col <span class="kw">BETWEEN</span> 10 <span class="kw">AND</span> 50;<br><span class="kw">SELECT</span> * <span class="kw">FROM</span> t <span class="kw">WHERE</span> col <span class="kw">LIKE</span> <span class="str">\'A%\'</span>;</div>',
+    example:'-- Products in specific categories\nSELECT product_name, category, price\nFROM products\nWHERE category IN (\'Electronics\', \'Books\')\nORDER BY price DESC;',
+    challenges:[{title:'Salary Range Search',desc:'Find employees whose <code>salary</code> is <code>BETWEEN</code> 55000 <code>AND</code> 75000. Select <code>first_name</code>, <code>last_name</code>, <code>salary</code>.',hint:'Use WHERE salary BETWEEN 55000 AND 75000;',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};var exp=db.exec("SELECT first_name,last_name,salary FROM employees WHERE salary BETWEEN 55000 AND 75000");if(!exp.length)return{pass:false,msg:'Unexpected error.'};if(res.values.length!==exp[0].values.length)return{pass:false,msg:'Expected '+exp[0].values.length+' rows, got '+res.values.length+'.'};return{pass:true,msg:'Salary range query correct!'}}}]},
+  {id:'arith-logic',cat:'operators',title:'Arithmetic & Logical',
+    theory:'<h3>Arithmetic & Logical Operators</h3><p><strong>Arithmetic:</strong> <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code></p><p><strong>Comparison:</strong> <code>=</code>, <code>!=</code>, <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code></p><p><strong>Logical:</strong> <code>AND</code>, <code>OR</code>, <code>NOT</code></p><div class="syntax-box"><span class="kw">SELECT</span> name, salary, salary * <span class="fn">12</span> <span class="kw">AS</span> annual<br><span class="kw">FROM</span> employees<br><span class="kw">WHERE</span> dept_id = 1 <span class="kw">AND</span> salary > 60000;</div>',
+    example:'-- Calculate annual salary with 15% bonus\nSELECT first_name, salary,\n  salary * 12 AS annual_salary,\n  salary * 12 * 0.15 AS annual_bonus\nFROM employees\nWHERE dept_id = 1 OR dept_id = 3;',
+    challenges:[{title:'Computed Columns',desc:'Select <code>product_name</code>, <code>price</code>, <code>stock</code>, and a computed column <code>price * stock</code> aliased as <code>total_value</code> for all products where <code>price > 20</code> and <code>stock > 20</code>.',hint:'SELECT product_name, price, stock, price * stock AS total_value FROM products WHERE price > 20 AND stock > 20;',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};var exp=db.exec("SELECT product_name,price,stock,price*stock AS total_value FROM products WHERE price>20 AND stock>20");if(!exp.length)return{pass:false,msg:'No matching rows.'};if(res.values.length!==exp[0].values.length)return{pass:false,msg:'Expected '+exp[0].values.length+' rows, got '+res.values.length+'.'};if(res.columns.length<4)return{pass:false,msg:'Expected at least 4 columns.'};return{pass:true,msg:'Computed column query is correct!'}}}]},
+  {id:'aggregates',cat:'functions',title:'Aggregate Functions',
+    theory:'<h3>Aggregate Functions & GROUP BY</h3><p>Aggregate functions compute a single value from a set of rows.</p><ul><li><code>COUNT(*)</code> — number of rows</li><li><code>SUM(col)</code> — total</li><li><code>AVG(col)</code> — average</li><li><code>MIN(col)</code> / <code>MAX(col)</code> — minimum / maximum</li></ul><div class="syntax-box"><span class="kw">SELECT</span> dept_id, <span class="fn">COUNT</span>(*), <span class="fn">AVG</span>(salary)<br><span class="kw">FROM</span> employees<br><span class="kw">GROUP BY</span> dept_id<br><span class="kw">HAVING</span> <span class="fn">COUNT</span>(*) > 2;</div>',
+    example:'-- Department salary stats\nSELECT d.dept_name,\n  COUNT(*) AS emp_count,\n  ROUND(AVG(e.salary), 2) AS avg_salary,\n  MAX(e.salary) AS max_salary\nFROM employees e\nJOIN departments d ON e.dept_id = d.dept_id\nGROUP BY d.dept_name\nORDER BY avg_salary DESC;',
+    challenges:[{title:'Category Product Stats',desc:'For each product <code>category</code>, find the <code>COUNT</code> of products, the <code>AVG</code> price (rounded to 2 decimals), and the total <code>SUM</code> of <code>stock</code>. Alias them as <code>product_count</code>, <code>avg_price</code>, <code>total_stock</code>.',hint:'SELECT category, COUNT(*) AS product_count, ROUND(AVG(price),2) AS avg_price, SUM(stock) AS total_stock FROM products GROUP BY category;',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};var exp=db.exec("SELECT category FROM products GROUP BY category");if(res.values.length!==exp[0].values.length)return{pass:false,msg:'Expected '+exp[0].values.length+' groups, got '+res.values.length+'.'};if(res.columns.length<4)return{pass:false,msg:'Need 4 columns.'};return{pass:true,msg:'Aggregate query correct!'}}}]},
+  {id:'string-functions',cat:'functions',title:'String Functions',
+    theory:'<h3>String Functions</h3><ul><li><code>UPPER(s)</code> / <code>LOWER(s)</code> — change case</li><li><code>LENGTH(s)</code> — string length</li><li><code>SUBSTR(s, start, len)</code> — extract substring</li><li><code>REPLACE(s, from, to)</code> — replace text</li><li><code>TRIM(s)</code> — remove whitespace</li><li><code>||</code> — concatenate strings</li></ul><div class="syntax-box"><span class="kw">SELECT</span> <span class="fn">UPPER</span>(first_name) || <span class="str">\' \'</span> || <span class="fn">UPPER</span>(last_name) <span class="kw">AS</span> full_name<br><span class="kw">FROM</span> employees;</div>',
+    example:'-- Build formatted name and email preview\nSELECT\n  UPPER(first_name) || \' \' || UPPER(last_name) AS full_name,\n  LENGTH(email) AS email_length,\n  SUBSTR(email, 1, INSTR(email, \'@\') - 1) AS username\nFROM employees;',
+    challenges:[{title:'Customer Name Formatting',desc:'Select customer <code>name</code> in UPPER case (aliased as <code>upper_name</code>), the <code>LENGTH</code> of their name (aliased as <code>name_length</code>), and their <code>city</code> in LOWER case (aliased as <code>lower_city</code>).',hint:'SELECT UPPER(name) AS upper_name, LENGTH(name) AS name_length, LOWER(city) AS lower_city FROM customers;',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};var exp=db.exec("SELECT * FROM customers");if(res.values.length!==exp[0].values.length)return{pass:false,msg:'Expected '+exp[0].values.length+' rows.'};if(res.columns.length<3)return{pass:false,msg:'Need 3 columns.'};var first=res.values[0];if(typeof first[0]==='string'&&first[0]!==first[0].toUpperCase())return{pass:false,msg:'First column should be UPPER case.'};return{pass:true,msg:'String functions mastered!'}}}]},
+  {id:'inner-join',cat:'joins',title:'INNER JOIN',
+    theory:'<h3>INNER JOIN</h3><p>Returns rows that have matching values in both tables.</p><div class="syntax-box"><span class="kw">SELECT</span> a.col, b.col<br><span class="kw">FROM</span> table_a a<br><span class="kw">INNER JOIN</span> table_b b <span class="kw">ON</span> a.key = b.key;</div><p>Rows without a match are excluded.</p>',
+    example:'-- Employees with their department names\nSELECT e.first_name, e.last_name, d.dept_name, e.salary\nFROM employees e\nINNER JOIN departments d ON e.dept_id = d.dept_id\nORDER BY d.dept_name, e.last_name;',
+    challenges:[{title:'Orders with Customer Names',desc:'Write a query joining <code>orders</code> and <code>customers</code> to show <code>order_id</code>, customer <code>name</code>, <code>order_date</code>, and <code>total_amount</code>. Sort by <code>order_date</code>.',hint:'SELECT o.order_id, c.name, o.order_date, o.total_amount FROM orders o INNER JOIN customers c ON o.customer_id = c.customer_id ORDER BY o.order_date;',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};var exp=db.exec("SELECT o.order_id FROM orders o INNER JOIN customers c ON o.customer_id=c.customer_id");if(res.values.length!==exp[0].values.length)return{pass:false,msg:'Expected '+exp[0].values.length+' rows.'};if(res.columns.length<4)return{pass:false,msg:'Need at least 4 columns.'};return{pass:true,msg:'INNER JOIN mastered!'}}}]},
+  {id:'natural-join',cat:'joins',title:'NATURAL JOIN',
+    theory:'<h3>NATURAL JOIN</h3><p>Automatically joins on columns with the <strong>same name</strong> in both tables.</p><div class="syntax-box"><span class="kw">SELECT</span> * <span class="kw">FROM</span> table_a<br><span class="kw">NATURAL JOIN</span> table_b;</div><p><strong>Caution:</strong> Can be unpredictable if tables share multiple column names.</p>',
+    example:'-- Natural join on dept_id (shared column)\nSELECT first_name, last_name, dept_name, location\nFROM employees\nNATURAL JOIN departments;',
+    challenges:[{title:'Natural Join Products & Orders',desc:'Use a <code>NATURAL JOIN</code> between <code>orders</code> and <code>products</code>. Select <code>order_id</code>, <code>product_name</code>, <code>quantity</code>, and <code>price</code>.',hint:'SELECT order_id, product_name, quantity, price FROM orders NATURAL JOIN products;',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};if(res.values.length<1)return{pass:false,msg:'No results returned.'};if(res.columns.length<4)return{pass:false,msg:'Need at least 4 columns.'};return{pass:true,msg:'NATURAL JOIN complete!'}}}]},
+  {id:'outer-join',cat:'joins',title:'LEFT & RIGHT JOIN',
+    theory:'<h3>OUTER JOINs</h3><p>Outer joins return all rows from one or both tables, even if there\'s no match.</p><div class="syntax-box"><span class="cm">-- All left rows + matched right rows</span><br><span class="kw">SELECT</span> * <span class="kw">FROM</span> a <span class="kw">LEFT JOIN</span> b <span class="kw">ON</span> a.id = b.id;<br><br><span class="cm">-- All right rows + matched left rows</span><br><span class="kw">SELECT</span> * <span class="kw">FROM</span> a <span class="kw">RIGHT JOIN</span> b <span class="kw">ON</span> a.id = b.id;</div><p>Unmatched columns appear as <code>NULL</code>.</p>',
+    example:'-- All departments, even with no employees\nSELECT d.dept_name, d.location,\n  e.first_name, e.last_name\nFROM departments d\nLEFT JOIN employees e ON d.dept_id = e.dept_id\nORDER BY d.dept_name;',
+    challenges:[{title:'Find Departments with No Employees',desc:'Use a <code>LEFT JOIN</code> between <code>departments</code> and <code>employees</code> and filter where <code>emp_id IS NULL</code>.',hint:'SELECT d.dept_name FROM departments d LEFT JOIN employees e ON d.dept_id = e.dept_id WHERE e.emp_id IS NULL;',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};var exp=db.exec("SELECT d.dept_name FROM departments d LEFT JOIN employees e ON d.dept_id=e.dept_id WHERE e.emp_id IS NULL");if(res.values.length!==exp[0].values.length)return{pass:false,msg:'Expected '+exp[0].values.length+' department(s), got '+res.values.length+'.'};return{pass:true,msg:'LEFT JOIN with NULL filter mastered!'}}}]},
+  {id:'subqueries',cat:'subqueries',title:'Subqueries',
+    theory:'<h3>Subqueries</h3><p>A subquery is a query nested inside another query.</p><ul><li><strong>Scalar subquery:</strong> Returns a single value</li><li><strong>IN subquery:</strong> Returns a list</li><li><strong>EXISTS subquery:</strong> Tests for existence</li></ul><div class="syntax-box"><span class="cm">-- Scalar</span><br><span class="kw">SELECT</span> * <span class="kw">FROM</span> emp <span class="kw">WHERE</span> salary > (<span class="kw">SELECT</span> <span class="fn">AVG</span>(salary) <span class="kw">FROM</span> emp);<br><br><span class="cm">-- IN</span><br><span class="kw">SELECT</span> * <span class="kw">FROM</span> emp <span class="kw">WHERE</span> dept_id <span class="kw">IN</span> (<span class="kw">SELECT</span> dept_id <span class="kw">FROM</span> dept <span class="kw">WHERE</span> location=<span class="str">\'NYC\'</span>);</div>',
+    example:'-- Employees earning above average\nSELECT first_name, last_name, salary\nFROM employees\nWHERE salary > (SELECT AVG(salary) FROM employees)\nORDER BY salary DESC;',
+    challenges:[{title:'Above-Average Spenders',desc:'Find orders where <code>total_amount</code> is greater than the average <code>total_amount</code>. Show <code>order_id</code>, <code>total_amount</code>.',hint:'Use WHERE total_amount > (SELECT AVG(total_amount) FROM orders);',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};var exp=db.exec("SELECT order_id,total_amount FROM orders WHERE total_amount>(SELECT AVG(total_amount) FROM orders)");if(res.values.length!==exp[0].values.length)return{pass:false,msg:'Expected '+exp[0].values.length+' rows, got '+res.values.length+'.'};return{pass:true,msg:'Subquery mastered!'}}},{title:'Departments with High Earners',desc:'Use a subquery with <code>IN</code> to find <code>dept_name</code> from <code>departments</code> that have at least one employee with salary > 80000.',hint:'SELECT dept_name FROM departments WHERE dept_id IN (SELECT dept_id FROM employees WHERE salary > 80000);',validate:function(db,res){if(!res)return{pass:false,msg:'Run your query first.'};var exp=db.exec("SELECT dept_name FROM departments WHERE dept_id IN (SELECT dept_id FROM employees WHERE salary>80000)");if(res.values.length!==exp[0].values.length)return{pass:false,msg:'Expected '+exp[0].values.length+' departments, got '+res.values.length+'.'};return{pass:true,msg:'IN subquery correct!'}}}]},
+  {id:'views',cat:'views',title:'VIEWs',
+    theory:'<h3>VIEWs</h3><p>A view is a virtual table based on a SELECT query.</p><div class="syntax-box"><span class="kw">CREATE VIEW</span> view_name <span class="kw">AS</span><br><span class="kw">SELECT</span> ... <span class="kw">FROM</span> ...;<br><br><span class="kw">SELECT</span> * <span class="kw">FROM</span> view_name;<br><br><span class="kw">DROP VIEW IF EXISTS</span> view_name;</div>',
+    example:'-- Create a view for employee directory\nCREATE VIEW employee_directory AS\nSELECT e.emp_id, e.first_name || \' \' || e.last_name AS full_name,\n  e.email, d.dept_name, e.salary\nFROM employees e\nJOIN departments d ON e.dept_id = d.dept_id;\n\nSELECT * FROM employee_directory ORDER BY full_name;',
+    challenges:[{title:'Create an Order Summary View',desc:'Create a view called <code>order_summary</code> that joins <code>orders</code>, <code>customers</code>, and <code>products</code> to show <code>order_id</code>, customer <code>name</code>, <code>product_name</code>, <code>quantity</code>, and <code>total_amount</code>.',hint:'CREATE VIEW order_summary AS SELECT o.order_id, c.name, p.product_name, o.quantity, o.total_amount FROM orders o JOIN customers c ON ... JOIN products p ON ...;',validate:function(db){try{var v=db.exec("SELECT name FROM sqlite_master WHERE type='view' AND name='order_summary'");if(!v.length||!v[0].values.length)return{pass:false,msg:'View "order_summary" not found.'};var data=db.exec("SELECT * FROM order_summary LIMIT 1");if(!data.length)return{pass:false,msg:'View has no data.'};if(data[0].columns.length<5)return{pass:false,msg:'View should have at least 5 columns.'};return{pass:true,msg:'Order summary view created and working!'}}catch(e){return{pass:false,msg:e.message}}}},{title:'Drop a View',desc:'Drop the <code>employee_directory</code> view created in the example (run the example first).',hint:'DROP VIEW IF EXISTS employee_directory;',validate:function(db){try{var v=db.exec("SELECT name FROM sqlite_master WHERE type='view' AND name='employee_directory'");if(!v.length||!v[0].values.length)return{pass:true,msg:'View "employee_directory" successfully dropped!'};return{pass:false,msg:'View "employee_directory" still exists.'}}catch(e){return{pass:false,msg:e.message}}}}]}
+];
+
+/* ========== SNIPPETS DATA ========== */
+var SNIPPETS=[
+  {category:'Basic Queries',icon:'fa-magnifying-glass',items:[
+    {title:'Select All Columns',sql:'SELECT * FROM employees;'},
+    {title:'Select Specific Columns',sql:'SELECT first_name, last_name, salary\nFROM employees;'},
+    {title:'WHERE Clause',sql:"SELECT * FROM employees\nWHERE salary > 70000;"},
+    {title:'ORDER BY',sql:'SELECT * FROM employees\nORDER BY salary DESC;'},
+    {title:'LIMIT Results',sql:'SELECT * FROM employees\nLIMIT 10;'},
+    {title:'DISTINCT Values',sql:'SELECT DISTINCT city\nFROM customers;'},
+    {title:'Column Aliases',sql:'SELECT first_name AS name,\n  salary * 12 AS annual\nFROM employees;'}
+  ]},
+  {category:'Filtering',icon:'fa-filter',items:[
+    {title:'AND / OR',sql:"SELECT * FROM employees\nWHERE dept_id = 1\n  AND salary > 70000;"},
+    {title:'IN List',sql:"SELECT * FROM products\nWHERE category IN\n  ('Electronics', 'Books');"},
+    {title:'BETWEEN Range',sql:'SELECT * FROM employees\nWHERE salary\n  BETWEEN 50000 AND 80000;'},
+    {title:'LIKE Pattern',sql:"SELECT * FROM customers\nWHERE name LIKE 'A%';"},
+    {title:'IS NULL / IS NOT NULL',sql:'SELECT * FROM employees\nWHERE manager_id IS NULL;'},
+    {title:'NOT IN',sql:"SELECT * FROM products\nWHERE category NOT IN\n  ('Furniture');"}
+  ]},
+  {category:'Joins',icon:'fa-circle-nodes',items:[
+    {title:'INNER JOIN',sql:'SELECT e.first_name, d.dept_name\nFROM employees e\nINNER JOIN departments d\n  ON e.dept_id = d.dept_id;'},
+    {title:'LEFT JOIN',sql:'SELECT d.dept_name, e.first_name\nFROM departments d\nLEFT JOIN employees e\n  ON d.dept_id = e.dept_id;'},
+    {title:'Multi-Table JOIN',sql:'SELECT o.order_id, c.name,\n  p.product_name\nFROM orders o\nJOIN customers c\n  ON o.customer_id = c.customer_id\nJOIN products p\n  ON o.product_id = p.product_id;'},
+    {title:'Self JOIN',sql:'SELECT e.first_name AS employee,\n  m.first_name AS manager\nFROM employees e\nLEFT JOIN employees m\n  ON e.manager_id = m.emp_id;'}
+  ]},
+  {category:'Aggregation',icon:'fa-chart-bar',items:[
+    {title:'COUNT / SUM / AVG',sql:'SELECT COUNT(*) AS total,\n  SUM(salary) AS sum_sal,\n  ROUND(AVG(salary),2) AS avg_sal\nFROM employees;'},
+    {title:'GROUP BY',sql:'SELECT dept_id, COUNT(*) AS cnt\nFROM employees\nGROUP BY dept_id;'},
+    {title:'GROUP BY + HAVING',sql:'SELECT dept_id,\n  AVG(salary) AS avg_sal\nFROM employees\nGROUP BY dept_id\nHAVING AVG(salary) > 70000;'},
+    {title:'MIN / MAX',sql:'SELECT MIN(price) AS cheapest,\n  MAX(price) AS priciest\nFROM products;'}
+  ]},
+  {category:'Subqueries',icon:'fa-layer-group',items:[
+    {title:'Scalar Subquery',sql:'SELECT * FROM employees\nWHERE salary > (\n  SELECT AVG(salary)\n  FROM employees\n);'},
+    {title:'IN Subquery',sql:'SELECT dept_name\nFROM departments\nWHERE dept_id IN (\n  SELECT dept_id\n  FROM employees\n  WHERE salary > 80000\n);'},
+    {title:'EXISTS Subquery',sql:'SELECT d.dept_name\nFROM departments d\nWHERE EXISTS (\n  SELECT 1 FROM employees e\n  WHERE e.dept_id = d.dept_id\n);'}
+  ]},
+  {category:'Data Modification',icon:'fa-pen-to-square',items:[
+    {title:'INSERT Row',sql:"INSERT INTO departments\n  (dept_id, dept_name, location)\nVALUES (6, 'Research', 'Seattle');"},
+    {title:'UPDATE Row',sql:"UPDATE employees\nSET salary = salary * 1.10\nWHERE emp_id = 1;"},
+    {title:'DELETE Row',sql:'DELETE FROM orders\nWHERE order_id = 12;'}
+  ]},
+  {category:'Table Ops',icon:'fa-hammer',items:[
+    {title:'CREATE TABLE',sql:'CREATE TABLE projects (\n  id INTEGER PRIMARY KEY,\n  title TEXT NOT NULL,\n  budget REAL\n);'},
+    {title:'ALTER TABLE',sql:'ALTER TABLE products\nADD COLUMN discount REAL;'},
+    {title:'DROP TABLE',sql:'DROP TABLE IF EXISTS temp;'},
+    {title:'CREATE VIEW',sql:'CREATE VIEW emp_dir AS\nSELECT emp_id,\n  first_name || \' \' || last_name\n  AS full_name\nFROM employees;'}
+  ]}
+];
+
+/* ========== REFERENCE DATA ========== */
+var REF_CARDS=[
+  {title:'SELECT',icon:'fa-magnifying-glass',syntax:'<span class="kw">SELECT</span> col1, col2\n<span class="kw">FROM</span> table\n<span class="kw">WHERE</span> condition\n<span class="kw">GROUP BY</span> col\n<span class="kw">HAVING</span> condition\n<span class="kw">ORDER BY</span> col <span class="kw">ASC</span>|<span class="kw">DESC</span>\n<span class="kw">LIMIT</span> n;'},
+  {title:'INSERT',icon:'fa-plus',syntax:'<span class="kw">INSERT INTO</span> table (c1, c2)\n<span class="kw">VALUES</span> (v1, v2);\n\n<span class="cm">-- Multiple rows</span>\n<span class="kw">INSERT INTO</span> table (c1, c2)\n<span class="kw">VALUES</span> (v1, v2), (v3, v4);'},
+  {title:'UPDATE',icon:'fa-pen',syntax:'<span class="kw">UPDATE</span> table\n<span class="kw">SET</span> col1 = val1,\n    col2 = val2\n<span class="kw">WHERE</span> condition;'},
+  {title:'DELETE',icon:'fa-trash',syntax:'<span class="kw">DELETE FROM</span> table\n<span class="kw">WHERE</span> condition;'},
+  {title:'CREATE TABLE',icon:'fa-hammer',syntax:'<span class="kw">CREATE TABLE</span> name (\n  id <span class="fn">INTEGER PRIMARY KEY</span>,\n  col <span class="fn">TEXT NOT NULL</span>,\n  val <span class="fn">REAL DEFAULT</span> 0\n);'},
+  {title:'ALTER TABLE',icon:'fa-wrench',syntax:'<span class="kw">ALTER TABLE</span> t\n  <span class="kw">ADD COLUMN</span> col <span class="fn">TEXT</span>;\n<span class="kw">ALTER TABLE</span> t\n  <span class="kw">RENAME TO</span> new_name;\n<span class="kw">ALTER TABLE</span> t\n  <span class="kw">RENAME COLUMN</span> a <span class="kw">TO</span> b;'},
+  {title:'JOINs',icon:'fa-circle-nodes',syntax:'<span class="kw">SELECT</span> * <span class="kw">FROM</span> a\n<span class="kw">INNER JOIN</span> b <span class="kw">ON</span> a.id = b.id\n<span class="kw">LEFT JOIN</span>  c <span class="kw">ON</span> a.id = c.id\n<span class="kw">NATURAL JOIN</span> d;'},
+  {title:'Aggregates',icon:'fa-chart-bar',syntax:'<span class="fn">COUNT</span>(*) <span class="fn">SUM</span>(col)\n<span class="fn">AVG</span>(col)   <span class="fn">MIN</span>(col)\n<span class="fn">MAX</span>(col)   <span class="fn">ROUND</span>(val, n)\n<span class="fn">GROUP_CONCAT</span>(col, <span class="str">\',\'</span>)'},
+  {title:'String Functions',icon:'fa-font',syntax:'<span class="fn">UPPER</span>(s)  <span class="fn">LOWER</span>(s)\n<span class="fn">LENGTH</span>(s) <span class="fn">TRIM</span>(s)\n<span class="fn">SUBSTR</span>(s, start, len)\n<span class="fn">REPLACE</span>(s, old, new)\n<span class="fn">INSTR</span>(s, search)\ns1 <span class="kw">||</span> s2  <span class="cm">-- concat</span>'},
+  {title:'Subqueries',icon:'fa-layer-group',syntax:'<span class="cm">-- Scalar</span>\n<span class="kw">WHERE</span> col > (<span class="kw">SELECT</span> <span class="fn">AVG</span>(c) <span class="kw">FROM</span> t)\n\n<span class="cm">-- List</span>\n<span class="kw">WHERE</span> col <span class="kw">IN</span> (<span class="kw">SELECT</span> c <span class="kw">FROM</span> t)\n\n<span class="cm">-- Exists</span>\n<span class="kw">WHERE EXISTS</span> (<span class="kw">SELECT</span> 1 <span class="kw">FROM</span> t)'},
+  {title:'Views',icon:'fa-eye',syntax:'<span class="kw">CREATE VIEW</span> name <span class="kw">AS</span>\n  <span class="kw">SELECT</span> ... <span class="kw">FROM</span> ...;\n\n<span class="kw">SELECT</span> * <span class="kw">FROM</span> name;\n\n<span class="kw">DROP VIEW IF EXISTS</span> name;'},
+  {title:'Operators',icon:'fa-not-equal',syntax:'<span class="kw">IN</span> (a, b, c)\n<span class="kw">BETWEEN</span> a <span class="kw">AND</span> b\n<span class="kw">LIKE</span> <span class="str">\'%pat%\'</span>  <span class="cm">-- % = any</span>\n<span class="kw">LIKE</span> <span class="str">\'_at\'</span>    <span class="cm">-- _ = one</span>\n<span class="kw">IS NULL</span> / <span class="kw">IS NOT NULL</span>\n<span class="kw">AND</span> / <span class="kw">OR</span> / <span class="kw">NOT</span>'}
+];
+
+/* ========== DATABASE INIT SQL ========== */
+var INIT_SQL = "CREATE TABLE departments(dept_id INTEGER PRIMARY KEY,dept_name TEXT NOT NULL,location TEXT);INSERT INTO departments VALUES(1,'Engineering','San Francisco');INSERT INTO departments VALUES(2,'Marketing','New York');INSERT INTO departments VALUES(3,'Human Resources','Chicago');INSERT INTO departments VALUES(4,'Sales','Los Angeles');INSERT INTO departments VALUES(5,'Finance','Boston');CREATE TABLE employees(emp_id INTEGER PRIMARY KEY,first_name TEXT NOT NULL,last_name TEXT NOT NULL,email TEXT,salary REAL,hire_date TEXT,dept_id INTEGER,manager_id INTEGER,FOREIGN KEY(dept_id) REFERENCES departments(dept_id));INSERT INTO employees VALUES(1,'Alice','Johnson','alice.j@company.com',85000,'2019-03-15',1,NULL);INSERT INTO employees VALUES(2,'Bob','Smith','bob.smith@company.com',72000,'2020-06-01',1,1);INSERT INTO employees VALUES(3,'Carol','Williams','carol.w@company.com',68000,'2021-01-20',2,NULL);INSERT INTO employees VALUES(4,'David','Brown','david.b@company.com',91000,'2018-11-10',1,1);INSERT INTO employees VALUES(5,'Eva','Davis','eva.d@company.com',55000,'2022-04-05',3,NULL);INSERT INTO employees VALUES(6,'Frank','Miller','frank.m@company.com',78000,'2020-09-12',4,NULL);INSERT INTO employees VALUES(7,'Grace','Wilson','grace.w@company.com',62000,'2021-07-30',2,3);INSERT INTO employees VALUES(8,'Henry','Moore','henry.m@company.com',95000,'2017-05-22',1,1);INSERT INTO employees VALUES(9,'Iris','Taylor','iris.t@company.com',58000,'2023-02-14',3,5);INSERT INTO employees VALUES(10,'Jack','Anderson','jack.a@company.com',83000,'2019-08-08',4,6);INSERT INTO employees VALUES(11,'Karen','Thomas','karen.t@company.com',67000,'2022-11-01',5,NULL);INSERT INTO employees VALUES(12,'Leo','Jackson','leo.j@company.com',74000,'2020-03-25',1,1);INSERT INTO employees VALUES(13,'Mia','White','mia.w@company.com',59000,'2023-06-18',2,3);INSERT INTO employees VALUES(14,'Noah','Harris','noah.h@company.com',88000,'2018-01-30',4,6);INSERT INTO employees VALUES(15,'Olivia','Clark','olivia.c@company.com',71000,'2021-12-05',5,11);CREATE TABLE products(product_id INTEGER PRIMARY KEY,product_name TEXT NOT NULL,category TEXT,price REAL,stock INTEGER);INSERT INTO products VALUES(1,'Laptop Pro','Electronics',1299.99,45);INSERT INTO products VALUES(2,'Wireless Mouse','Electronics',29.99,200);INSERT INTO products VALUES(3,'SQL Mastery','Books',49.99,150);INSERT INTO products VALUES(4,'Standing Desk','Furniture',599.99,30);INSERT INTO products VALUES(5,'Noise-Cancel Headphones','Electronics',249.99,80);INSERT INTO products VALUES(6,'Python Cookbook','Books',39.99,120);INSERT INTO products VALUES(7,'Ergonomic Chair','Furniture',449.99,25);INSERT INTO products VALUES(8,'Mechanical Keyboard','Electronics',159.99,90);INSERT INTO products VALUES(9,'Data Science Handbook','Books',59.99,10);INSERT INTO products VALUES(10,'Monitor 27\"','Electronics',399.99,55);CREATE TABLE customers(customer_id INTEGER PRIMARY KEY,name TEXT NOT NULL,email TEXT,city TEXT,country TEXT);INSERT INTO customers VALUES(1,'Liam Chen','liam@email.com','San Francisco','USA');INSERT INTO customers VALUES(2,'Sophie Martin','sophie@email.com','Paris','France');INSERT INTO customers VALUES(3,'Raj Patel','raj@email.com','Mumbai','India');INSERT INTO customers VALUES(4,'Emma Brown','emma@email.com','London','UK');INSERT INTO customers VALUES(5,'Yuki Tanaka','yuki@email.com','Tokyo','Japan');INSERT INTO customers VALUES(6,'Maria Garcia','maria@email.com','Madrid','Spain');INSERT INTO customers VALUES(7,'James Wilson','james@email.com','New York','USA');INSERT INTO customers VALUES(8,'Anna Kowalski','anna@email.com','Warsaw','Poland');CREATE TABLE orders(order_id INTEGER PRIMARY KEY,customer_id INTEGER,product_id INTEGER,quantity INTEGER,order_date TEXT,total_amount REAL,FOREIGN KEY(customer_id) REFERENCES customers(customer_id),FOREIGN KEY(product_id) REFERENCES products(product_id));INSERT INTO orders VALUES(1,1,1,1,'2024-01-15',1299.99);INSERT INTO orders VALUES(2,2,3,2,'2024-01-20',99.98);INSERT INTO orders VALUES(3,3,5,1,'2024-02-03',249.99);INSERT INTO orders VALUES(4,1,8,1,'2024-02-10',159.99);INSERT INTO orders VALUES(5,4,2,3,'2024-02-14',89.97);INSERT INTO orders VALUES(6,5,6,1,'2024-03-01',39.99);INSERT INTO orders VALUES(7,7,4,1,'2024-03-05',599.99);INSERT INTO orders VALUES(8,6,10,2,'2024-03-12',799.98);INSERT INTO orders VALUES(9,3,7,1,'2024-03-20',449.99);INSERT INTO orders VALUES(10,8,9,3,'2024-04-02',179.97);INSERT INTO orders VALUES(11,2,1,1,'2024-04-10',1299.99);INSERT INTO orders VALUES(12,7,5,2,'2024-04-15',499.98);";
+
+/* ========== APP STATE ========== */
+var db=null,editor=null,lastResult=null,currentTopic=null,currentChallenge=0;
+var SQL = null;
+var completedTopics=new Set();
+var savedQueries=[];
+var toastTimer=null;
+var modalCallback = null;
+
+
+/* ========== INIT ========== */
+/*async function initApp(){
+  try{
+    var SQL=await initSqlJs({locateFile:function(f){return'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/'+f}});
+    db=new SQL.Database();
+    db.run(INIT_SQL);
+    buildSidebar();buildWelcome();refreshSchema();updateProgress();
+    buildSnippetsPanel();buildSavedPanel();
+    bindEvents();
+    document.getElementById('loadingScreen').classList.add('hidden');
+  }catch(e){
+    document.querySelector('.loading-screen p').textContent='Error loading SQL engine';
+    document.querySelector('.load-sub').textContent=e.message;
+  }
+}
+*/
+
+// ==========================================
+// IMPORT & EXPORT SQLITE DATABASES
+// ==========================================
+
+// Export: Converts the in-memory SQLite to a downloadable file
+function exportDatabase() {
+  if (!db) {
+    alert("Database is not initialized!");
+    return;
+  }
+  
+  // db.export() returns a Uint8Array from sql.js
+  const binaryArray = db.export();
+  const blob = new Blob([binaryArray], { type: 'application/x-sqlite3' });
+  const url = window.URL.createObjectURL(blob);
+  
+  // Create an invisible anchor to trigger download
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'sqllab_export.sqlite';
+  document.body.appendChild(a);
+  a.click();
+  
+  // Cleanup
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
+// DEBUGGED IMPORT FUNCTION
+/* ========== 1. UPDATED MERGE IMPORT FUNCTION ========== */
+async function getSqlEngine() {
+    if (SQL !== null) return SQL; 
+    const config = { locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` };
+    SQL = await initSqlJs(config);
+    return SQL;
+}
+
+async function importDatabase(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function() {
+        try {
+            const uInt8Array = new Uint8Array(this.result);
+            const engine = await getSqlEngine();
+
+            // Validate header — SQLite magic is 16 bytes; first 15 are printable
+            const header = String.fromCharCode.apply(null, uInt8Array.slice(0, 16));
+            if (!header.startsWith("SQLite format 3")) {
+                throw new Error("Invalid SQLite file format. Please select a valid .sqlite database file.");
+            }
+
+            // Create a temporary database from the imported file
+            const tempDb = new engine.Database(uInt8Array);
+            
+            // Get all table names from the imported file
+            const res = tempDb.exec("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+            
+            if (res.length > 0) {
+                const tables = res[0].values;
+                let mergedCount = 0;
+                let errorCount = 0;
+
+                tables.forEach(table => {
+                    const tableName = table[0];
+                    const createSql = table[1];
+
+                    try {
+                        // 1. Create the table in current DB if it doesn't exist
+                        db.run(createSql.replace(/CREATE TABLE/i, 'CREATE TABLE IF NOT EXISTS'));
+                        
+                        // 2. Fetch data from temp DB and insert into current DB
+                        const dataRes = tempDb.exec(`SELECT * FROM "${tableName}"`);
+                        if (dataRes.length > 0) {
+                            const columns = dataRes[0].columns;
+                            const values = dataRes[0].values;
+                            
+                            const placeholders = columns.map(() => '?').join(',');
+                            const insertSql = `INSERT OR IGNORE INTO "${tableName}" (${columns.map(c => `"${c}"`).join(',')}) VALUES (${placeholders})`;
+                            
+                            values.forEach(row => {
+                                db.run(insertSql, row);
+                            });
+                        }
+                        mergedCount++;
+                    } catch (e) {
+                        console.warn(`Failed to merge table ${tableName}:`, e);
+                        errorCount++;
+                    }
+                });
+
+                refreshSchema();
+                showModal("Merge Complete", 
+                    `Successfully merged ${mergedCount} tables into your current schema. ${errorCount > 0 ? errorCount + ' tables skipped due to errors.' : ''}`, 
+                    "Close", closeModal);
+            } else {
+                showModal("Import", "No tables found in the imported file.", "Close", closeModal);
+            }
+            
+            tempDb.close();
+            
+        } catch (err) {
+            console.error("Merge Error:", err);
+            showModal("Merge Error", (err.message || "Unknown error during merge."), "Ok", closeModal);
+        }
+    };
+    
+    reader.readAsArrayBuffer(file);
+    event.target.value = ""; 
+}
+
+/* ========== 2. RESET DATABASE ========== */
+function resetDatabase(){
+    if(!db) return;
+    try {
+        var objects = db.exec("SELECT type, name FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'");
+        if(objects.length){
+            objects[0].values.forEach(function(r){
+                try {
+                    db.run('DROP ' + r[0].toUpperCase() + ' IF EXISTS "' + r[1] + '"');
+                } catch(e) {}
+            });
+        }
+        db.run(INIT_SQL);
+        refreshSchema();
+        showModal("Database Reset", "The database has been restored to its original state.", "Close", closeModal);
+    } catch (e) {
+        console.error("Reset Error:", e);
+    }
+}
+
+
+
+async function initApp() {
+    try {
+        const engine = await getSqlEngine();
+        db = new engine.Database();
+        db.run(INIT_SQL);
+        buildSidebar();
+        buildWelcome();
+        refreshSchema();
+        updateProgress();
+        buildSnippetsPanel();
+        buildSavedPanel();
+        bindEvents();
+        document.getElementById('loadingScreen').classList.add('hidden');
+    } catch (e) {
+        document.querySelector('.loading-screen p').textContent = 'Error loading SQL engine';
+        document.querySelector('.load-sub').textContent = e.message;
+        console.error(e);
+    }
+}
+
+
+// ==========================================
+// DARK / LIGHT MODE DETECTION & TOGGLE
+// ==========================================
+
+function toggleTheme() {
+  const body = document.body;
+  body.classList.toggle('dark');
+  
+  const isDark = body.classList.contains('dark');
+  localStorage.setItem('sqllab-theme', isDark ? 'dark' : 'light');
+  updateThemeIcon(isDark);
+  
+  // If you are using CodeMirror, refresh it so it adopts the dark theme classes
+  if (typeof editor !== 'undefined') {
+    setTimeout(() => editor.refresh(), 10);
+  }
+}
+
+function updateThemeIcon(isDark) {
+  const icon = document.querySelector('#themeToggleBtn i');
+  if(icon) {
+    icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+  }
+}
+
+function initTheme() {
+  const savedTheme = localStorage.getItem('sqllab-theme');
+  // Auto-detect system preference if no saved theme
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  
+  if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+    document.body.classList.add('dark');
+    updateThemeIcon(true);
+  } else {
+    document.body.classList.remove('dark');
+    updateThemeIcon(false);
+  }
+}
+
+// Make sure to call initTheme() when the page loads
+window.addEventListener('DOMContentLoaded', initTheme);
+
+/* ========== QUERY EXECUTION ========== */
+function runQuery(){
+  if(!editor)return;
+  var sql=editor.getValue().trim();
+  if(!sql){showResultMsg('Please enter a SQL query.','error');return}
+  var start=performance.now();
+  try{
+    var statements=sql.split(';').filter(function(s){return s.trim()});
+    var finalResult=null;
+    statements.forEach(function(stmt){var s=stmt.trim();if(!s)return;var results=db.exec(s);if(results.length)finalResult=results[results.length-1]});
+    var elapsed=(performance.now()-start).toFixed(1);
+    if(finalResult){lastResult=finalResult;renderTable(finalResult,elapsed)}
+    else{lastResult=null;var upper=sql.toUpperCase();if(upper.includes('INSERT')||upper.includes('UPDATE')||upper.includes('DELETE')||upper.includes('CREATE')||upper.includes('ALTER')||upper.includes('DROP')){showResultMsg('Statement executed successfully. ('+elapsed+'ms)','success');refreshSchema()}else{showResultMsg('Query returned no results. ('+elapsed+'ms)','info')}}
+  }catch(e){lastResult=null;showResultMsg(e.message,'error')}
+}
+
+function renderTable(result,elapsed){
+  var wrap=document.getElementById('resultsContent');
+  var meta=document.getElementById('resultsMeta');
+  if(meta)meta.textContent=result.values.length+' row'+(result.values.length!==1?'s':'')+' \u00b7 '+elapsed+'ms';
+  var html='<div class="results-table-wrap"><table class="results-table"><thead><tr>';
+  result.columns.forEach(function(c){html+='<th>'+escHtml(c)+'</th>'});
+  html+='</tr></thead><tbody>';
+  result.values.forEach(function(row){html+='<tr>';row.forEach(function(val){var display=val===null?'<em style="color:var(--text-3)">NULL</em>':escHtml(String(val));html+='<td>'+display+'</td>'});html+='</tr>'});
+  html+='</tbody></table></div>';
+  if(wrap)wrap.innerHTML=html;
+}
+
+function showResultMsg(msg,type){
+  var wrap=document.getElementById('resultsContent');
+  var meta=document.getElementById('resultsMeta');
+  if(!wrap)return;if(meta)meta.textContent='';
+  var cls=type==='error'?'msg-error':type==='success'?'msg-success':'';
+  var icon=type==='error'?'fa-circle-exclamation':type==='success'?'fa-circle-check':'fa-info-circle';
+  wrap.innerHTML='<div class="result-msg '+cls+'"><i class="fa-solid '+icon+'"></i> '+escHtml(msg)+'</div>';
+}
+
+/* ========== SCHEMA ========== */
+function refreshSchema(){
+  var panel=document.getElementById('schemaPanel');
+  try{
+    var tables=db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+    if(!tables.length){panel.innerHTML='<div style="padding:8px;font-size:.75rem;color:var(--text-3)">No tables</div>';return}
+    var html='';
+    tables[0].values.forEach(function(r){var tname=r[0];var cols=db.exec('PRAGMA table_info("'+tname+'")');html+='<div class="schema-table"><div class="schema-table-name" onclick="toggleSchemaTable(this)"><i class="fa-solid fa-table"></i> '+escHtml(tname)+' <span class="arrow"><i class="fa-solid fa-chevron-right"></i></span></div><div class="schema-cols">';if(cols.length){cols[0].values.forEach(function(row){var pk=row[5]?'<span class="col-pk">PK</span>':'';html+='<div class="schema-col">'+pk+'<span class="col-name">'+escHtml(row[1])+'</span> <span class="col-type">'+escHtml(row[2]||'ANY')+'</span></div>'})}html+='</div></div>'});
+    panel.innerHTML=html;
+  }catch(e){panel.innerHTML=''}
+}
+function toggleSchemaTable(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('show')}
+
+/* ========== LEFT SIDEBAR ========== */
+function buildSidebar(){
+  var list=document.getElementById('topicList');var html='';
+  CATEGORIES.forEach(function(cat){var topics=TOPICS.filter(function(t){return t.cat===cat.id});html+='<div class="topic-category"><button class="topic-cat-btn" onclick="toggleCategory(this)"><i class="fa-solid '+cat.icon+'"></i> '+cat.name+' <span class="cat-count">'+topics.length+'</span><span class="cat-arrow"><i class="fa-solid fa-chevron-right"></i></span></button><div class="topic-items">';topics.forEach(function(t){html+='<button class="topic-item" data-id="'+t.id+'" onclick="selectTopic(\''+t.id+'\')"><span class="check"><i class="fa-solid fa-check"></i></span> '+escHtml(t.title)+'</button>'});html+='</div></div>'});
+  list.innerHTML=html;
+}
+function toggleCategory(btn){btn.classList.toggle('open');btn.nextElementSibling.classList.toggle('show')}
+
+function buildWelcome(){
+  var grid=document.getElementById('welcomeGrid');
+  var catInfo=[
+    {id:'ddl',icon:'fa-hammer',cls:'wc-ddl',label:'DDL'},{id:'dml',icon:'fa-pen-to-square',cls:'wc-dml',label:'DML'},
+    {id:'select',icon:'fa-magnifying-glass',cls:'wc-select',label:'SELECT'},{id:'operators',icon:'fa-not-equal',cls:'wc-ops',label:'Operators'},
+    {id:'functions',icon:'fa-square-root-variable',cls:'wc-func',label:'Functions'},{id:'joins',icon:'fa-circle-nodes',cls:'wc-join',label:'JOINs'},
+    {id:'subqueries',icon:'fa-layer-group',cls:'wc-sub',label:'Subqueries'},{id:'views',icon:'fa-eye',cls:'wc-view',label:'VIEWs'},
+    {id:'ref',icon:'fa-book-open',cls:'wc-ref',label:'Reference'}
+  ];
+  grid.innerHTML=catInfo.map(function(c){
+    if(c.id==='ref')return'<div class="welcome-card '+c.cls+'" onclick="showRefView()"><i class="fa-solid '+c.icon+'"></i><div class="wc-title">'+c.label+'</div><div class="wc-count">SQL cheat sheet</div></div>';
+    var count=TOPICS.filter(function(t){return t.cat===c.id}).length;
+    return'<div class="welcome-card '+c.cls+'" onclick="openCategory(\''+c.id+'\')"><i class="fa-solid '+c.icon+'"></i><div class="wc-title">'+c.label+'</div><div class="wc-count">'+count+' topic'+(count>1?'s':'')+'</div></div>';
+  }).join('');
+}
+
+function openCategory(catId){
+  var topics=TOPICS.filter(function(t){return t.cat===catId});
+  if(topics.length)selectTopic(topics[0].id);
+  document.querySelectorAll('.topic-cat-btn').forEach(function(btn){var items=btn.nextElementSibling;var itemCat=items.querySelector('.topic-item');if(itemCat){var tid=itemCat.dataset.id;var topic=TOPICS.find(function(t){return t.id===tid});if(topic&&topic.cat===catId){btn.classList.add('open');items.classList.add('show')}}});
+}
+
+/* ========== TOPIC VIEW ========== */
+function selectTopic(topicId){
+  var topic=TOPICS.find(function(t){return t.id===topicId});if(!topic)return;
+  currentTopic=topic;currentChallenge=0;lastResult=null;
+  document.querySelectorAll('.topic-item').forEach(function(el){el.classList.remove('active')});
+  var activeItem=document.querySelector('.topic-item[data-id="'+topicId+'"]');
+  if(activeItem){activeItem.classList.add('active');var parent=activeItem.closest('.topic-category');if(parent){parent.querySelector('.topic-cat-btn').classList.add('open');parent.querySelector('.topic-items').classList.add('show')}}
+  var cat=CATEGORIES.find(function(c){return c.id===topic.cat});
+  document.getElementById('breadcrumb').innerHTML='SQL Lab <span>/ '+(cat?cat.name:'')+' / '+escHtml(topic.title)+'</span>';
+  var view=document.getElementById('topicView');var html='';
+  html+='<div class="topic-title-row"><h2>'+escHtml(topic.title)+'</h2><span class="cat-badge cat-'+topic.cat+'">'+(cat?cat.name:'')+'</span></div>';
+  html+='<div class="theory-block">'+topic.theory+'</div>';
+  html+='<div class="editor-section"><div class="editor-toolbar"><span class="label"><i class="fa-solid fa-code"></i> SQL Editor</span>';
+  html+='<button class="btn btn-sm" onclick="loadExample()"><i class="fa-solid fa-clipboard"></i> Example</button>';
+  html+='<button class="btn btn-sm" onclick="saveQueryPrompt()"><i class="fa-solid fa-bookmark"></i> Save</button>';
+  html+='<button class="btn btn-sm btn-accent" onclick="runQuery()"><i class="fa-solid fa-play"></i> Run</button>';
+  html+='<span class="kb-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run</span></div>';
+  html+='<div class="editor-wrap"><textarea id="sqlEditor"></textarea></div></div>';
+  html+='<div class="results-section"><div class="results-header"><span class="label"><i class="fa-solid fa-table-list"></i> Results</span><span class="results-meta" id="resultsMeta"></span></div><div class="results-wrap" id="resultsContent"><div class="result-empty"><i class="fa-solid fa-database"></i>Run a query to see results</div></div></div>';
+  if(topic.challenges&&topic.challenges.length){topic.challenges.forEach(function(ch,i){html+='<div class="challenge-section" id="challenge-'+i+'"><div class="challenge-header"><i class="fa-solid fa-trophy"></i><h3>'+escHtml(ch.title)+'</h3><span class="ch-num">Challenge '+(i+1)+'/'+topic.challenges.length+'</span></div><div class="challenge-desc">'+ch.desc+'</div><div class="hint-toggle" onclick="toggleHint(this)"><i class="fa-solid fa-chevron-right"></i> Show Hint</div><div class="hint-content">'+escHtml(ch.hint)+'</div><div class="challenge-actions"><button class="btn btn-teal" onclick="checkChallenge('+i+')"><i class="fa-solid fa-check-double"></i> Check Answer</button></div><div class="challenge-result" id="challengeResult-'+i+'"></div></div>'})}
+  var idx=TOPICS.indexOf(topic);html+='<div class="topic-nav">';
+  if(idx>0)html+='<button class="btn" onclick="selectTopic(\''+TOPICS[idx-1].id+'\')"><i class="fa-solid fa-arrow-left"></i> '+escHtml(TOPICS[idx-1].title)+'</button>';else html+='<span></span>';
+  if(idx<TOPICS.length-1)html+='<button class="btn" onclick="selectTopic(\''+TOPICS[idx+1].id+'\')">'+escHtml(TOPICS[idx+1].title)+' <i class="fa-solid fa-arrow-right"></i></button>';
+  html+='</div>';
+  view.innerHTML=html;
+  document.getElementById('welcomeView').style.display='none';
+  document.getElementById('refView').className='ref-view';
+  view.className='topic-view active';
+  var ta=document.getElementById('sqlEditor');
+  if(editor){try{editor.toTextArea()}catch(e){}}
+  editor=CodeMirror.fromTextArea(ta,{mode:'text/x-sql',theme:'sql-lab',lineNumbers:true,lineWrapping:true,indentWithTabs:false,indentUnit:2,tabSize:2,matchBrackets:true,autofocus:false,styleActiveLine:true,extraKeys:{'Ctrl-Enter':runQuery,'Cmd-Enter':runQuery}});
+  editor.setValue('-- Try writing your query here\n');editor.focus();
+  document.getElementById('mainScroll').scrollTop=0;closeSidebar();
+}
+
+function loadExample(){if(!currentTopic||!editor)return;editor.setValue(currentTopic.example);editor.focus()}
+function toggleHint(el){el.classList.toggle('open');el.textContent='';var icon=document.createElement('i');icon.className='fa-solid fa-chevron-right';el.appendChild(icon);el.appendChild(document.createTextNode(el.classList.contains('open')?' Hide Hint':' Show Hint'));el.nextElementSibling.classList.toggle('show')}
+
+function checkChallenge(index){
+  if(!currentTopic||!currentTopic.challenges[index])return;
+  var ch=currentTopic.challenges[index];var result=ch.validate(db,lastResult);
+  var el=document.getElementById('challengeResult-'+index);
+  if(result.pass){el.className='challenge-result pass';el.innerHTML='<i class="fa-solid fa-circle-check"></i> '+escHtml(result.msg);completedTopics.add(currentTopic.id+'-'+index);updateProgress();updateSidebarCompletion()}
+  else{el.className='challenge-result fail';el.innerHTML='<i class="fa-solid fa-circle-xmark"></i> '+escHtml(result.msg)}
+}
+
+/* ========== REFERENCE VIEW ========== */
+function showRefView(){
+  document.getElementById('welcomeView').style.display='none';
+  document.getElementById('topicView').className='topic-view';
+  var view=document.getElementById('refView');
+  document.getElementById('breadcrumb').innerHTML='SQL Lab <span>/ Reference</span>';
+  var html='<div class="topic-title-row"><h2>SQL Quick Reference</h2><span class="cat-badge cat-dml">Cheat Sheet</span></div>';
+  html+='<div class="ref-grid">';
+  REF_CARDS.forEach(function(card){html+='<div class="ref-card"><h4><i class="fa-solid '+card.icon+'"></i> '+card.title+'</h4><div class="syntax-box">'+card.syntax+'</div></div>'});
+  html+='</div>';
+  view.innerHTML=html;view.className='ref-view active';
+  document.getElementById('mainScroll').scrollTop=0;closeSidebar();
+  document.querySelectorAll('.topic-item').forEach(function(el){el.classList.remove('active')});
+}
+
+/* ========== PROGRESS ========== */
+function getTotalChallenges(){return TOPICS.reduce(function(sum,t){return sum+(t.challenges?t.challenges.length:0)},0)}
+function updateProgress(){var total=getTotalChallenges();var done=completedTopics.size;document.getElementById('progText').textContent=done+' / '+total;document.getElementById('progFill').style.width=(total?(done/total*100):0)+'%'}
+function updateSidebarCompletion(){TOPICS.forEach(function(topic){if(!topic.challenges)return;var allDone=topic.challenges.every(function(_,i){return completedTopics.has(topic.id+'-'+i)});var el=document.querySelector('.topic-item[data-id="'+topic.id+'"]');if(el){if(allDone)el.classList.add('completed');else el.classList.remove('completed')}})}
+
+/* ========== RIGHT SIDEBAR — SNIPPETS ========== */
+function buildSnippetsPanel(){
+  var panel=document.getElementById('snippetsPanel');var html='';
+  SNIPPETS.forEach(function(group,gi){
+    html+='<div class="snippet-group"><button class="snippet-group-btn" onclick="toggleSnippetGroup(this)"><i class="fa-solid '+group.icon+'"></i> '+group.category+' <span class="sg-arrow"><i class="fa-solid fa-chevron-right"></i></span></button><div class="snippet-items">';
+    group.items.forEach(function(item,ii){html+='<div class="snippet-card" onclick="loadSnippet('+gi+','+ii+')"><div class="sn-title"><i class="fa-solid fa-arrow-right-to-bracket"></i> '+escHtml(item.title)+'</div><div class="sn-sql">'+escHtml(item.sql)+'</div></div>'});
+    html+='</div></div>';
+  });
+  panel.innerHTML=html;
+}
+function toggleSnippetGroup(btn){btn.classList.toggle('open');btn.nextElementSibling.classList.toggle('show')}
+function loadSnippet(gi,ii){
+  var snippet=SNIPPETS[gi].items[ii];
+  if(!editor){showToast('Open a topic first to use the editor');return}
+  editor.setValue(snippet.sql);editor.focus();showToast('Snippet loaded: '+snippet.title);
+}
+
+/* ========== RIGHT SIDEBAR — SAVED QUERIES ========== */
+function buildSavedPanel(){
+  var panel=document.getElementById('savedPanel');
+  if(!savedQueries.length){panel.innerHTML='<div class="saved-empty"><i class="fa-solid fa-bookmark"></i>No saved queries yet.<br>Use the Save button in the editor.</div>';return}
+  var html='<div class="saved-actions"><button class="btn btn-sm btn-teal" onclick="downloadSavedQueries()"><i class="fa-solid fa-download"></i> Download All</button></div>';
+  savedQueries.forEach(function(q,i){html+='<div class="saved-card" onclick="loadSavedQuery('+i+')"><div class="sv-info"><div class="sv-name">'+escHtml(q.name)+'</div><div class="sv-preview">'+escHtml(q.sql.substring(0,60))+'</div></div><button class="sv-del" onclick="event.stopPropagation();deleteSavedQuery('+i+')" title="Delete"><i class="fa-solid fa-trash-can"></i></button></div>'});
+  panel.innerHTML=html;
+}
+
+function saveQueryPrompt(){
+  if(!editor){showToast('No editor active');return}
+  var sql=editor.getValue().trim();
+  if(!sql||sql==='-- Try writing your query here'){showToast('Write a query first');return}
+  var rs=document.getElementById('rsidebar');
+  if(rs.classList.contains('collapsed'))toggleRSidebar();
+  switchRTabByName('savedPanel');
+  var panel=document.getElementById('savedPanel');
+  var existing=panel.querySelector('.save-inline');
+  if(existing){existing.classList.add('show');existing.querySelector('input').focus();return}
+  var div=document.createElement('div');div.className='save-inline show';
+  div.innerHTML='<input type="text" placeholder="Query name..." id="saveNameInput" maxlength="50"><div class="save-btns"><button class="btn btn-sm btn-teal" onclick="confirmSaveQuery()"><i class="fa-solid fa-check"></i> Save</button><button class="btn btn-sm" onclick="cancelSaveQuery()">Cancel</button></div>';
+  panel.insertBefore(div,panel.firstChild);
+  var inp=div.querySelector('input');
+  inp.focus();
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter')confirmSaveQuery();if(e.key==='Escape')cancelSaveQuery()});
+}
+
+function confirmSaveQuery(){
+  var inp=document.getElementById('saveNameInput');
+  var name=inp?inp.value.trim():'';
+  if(!name){inp.style.borderColor='var(--error)';return}
+  var sql=editor.getValue().trim();
+  savedQueries.push({name:name,sql:sql,time:Date.now()});
+  cancelSaveQuery();buildSavedPanel();showToast('Query saved: '+name);
+}
+function cancelSaveQuery(){var el=document.querySelector('.save-inline');if(el)el.remove()}
+
+function loadSavedQuery(index){
+  if(!editor){showToast('Open a topic first');return}
+  editor.setValue(savedQueries[index].sql);editor.focus();showToast('Loaded: '+savedQueries[index].name);
+}
+
+function deleteSavedQuery(index){
+  savedQueries.splice(index,1);buildSavedPanel();showToast('Query deleted');
+}
+
+function downloadSavedQueries(){
+  if(!savedQueries.length)return;
+  var text=savedQueries.map(function(q){return'-- '+q.name+'\n'+q.sql+';'}).join('\n\n');
+  var blob=new Blob([text],{type:'text/sql'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='saved_queries.sql';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+/* ========== RIGHT SIDEBAR TOGGLE ========== */
+function toggleRSidebar(){
+  var rs=document.getElementById('rsidebar');var ov=document.getElementById('rsidebarOverlay');
+  rs.classList.toggle('collapsed');
+  if(!rs.classList.contains('collapsed')){ov.classList.add('show')}else{ov.classList.remove('show')}
+}
+function switchRTab(btn){
+  document.querySelectorAll('.rsidebar-tab').forEach(function(t){t.classList.remove('active')});
+  document.querySelectorAll('.rsidebar-panel').forEach(function(p){p.classList.remove('active')});
+  btn.classList.add('active');document.getElementById(btn.dataset.panel).classList.add('active');
+}
+function switchRTabByName(panelId){
+  var btn=document.querySelector('.rsidebar-tab[data-panel="'+panelId+'"]');if(btn)switchRTab(btn);
+}
+
+/* ========== TOAST ========== */
+function showToast(msg){
+  var toast=document.getElementById('toast');document.getElementById('toastMsg').textContent=msg;
+  toast.classList.add('show');if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){toast.classList.remove('show')},2200);
+}
+
+/* ========== MODAL ========== */
+var modalCallback=null;
+function showModal(title,msg,confirmText,onConfirm){document.getElementById('modalTitle').textContent=title;document.getElementById('modalMsg').textContent=msg;var confirmBtn=document.getElementById('modalConfirm');confirmBtn.textContent=confirmText;modalCallback=onConfirm;confirmBtn.onclick=function(){closeModal();if(modalCallback)modalCallback()};document.getElementById('modalOverlay').classList.add('open')}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');modalCallback=null}
+function resetDbPrompt(){showModal('Reset Database?','This will restore all tables to their original state. Your changes will be lost.','Reset',function(){resetDatabase()})}
+
+/* ========== SIDEBAR TOGGLE ========== */
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebarOverlay').classList.add('open')}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open')}
+
+/* ========== EVENTS ========== */
+function bindEvents(){
+  document.getElementById('menuBtn').addEventListener('click',openSidebar);
+  document.getElementById('sidebarOverlay').addEventListener('click',closeSidebar);
+  document.getElementById('rsidebarOverlay').addEventListener('click',function(){var rs=document.getElementById('rsidebar');if(!rs.classList.contains('collapsed'))toggleRSidebar()});
+  document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===e.currentTarget)closeModal()});
+}
+
+/* ========== UTIL ========== */
+function escHtml(str){var div=document.createElement('div');div.appendChild(document.createTextNode(str));return div.innerHTML}
+
+/* ========== START ========== */
+initApp();
+</script>
+</body>
+</html>
